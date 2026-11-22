@@ -35,17 +35,22 @@ canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; background
 #go:active { opacity: .5; }
 #title { color: transparent; -webkit-background-clip: text; background-clip: text;
   background-image: linear-gradient(90deg, #f00, #ffe100); padding: 6px 0; margin: -6px 0; }
+/* 拿不到鏡頭時（Figma 4:2 / 4:3 / 4:4）：標題下方 29px 一行小字，再下 15px 一個可以點的「Use Device Image」＋ 底線 */
 #fail {
-  position: absolute; left: 0; right: 0; top: calc(50% + 56px); display: flex; flex-direction: column; align-items: center; gap: 14px;
-  font-size: 13px; line-height: 1.5; white-space: normal; padding: 0 24px;
+  position: absolute; left: 0; right: 0; top: calc(50% + 53px);
+  display: flex; flex-direction: column; align-items: center; gap: 15px;
 }
-#fail .row { display: flex; gap: 22px; }
-#fail button, #fail label {
-  font: inherit; font-variation-settings: inherit; color: #ccc; background: none; border: 0; padding: 8px 0; cursor: pointer;
-  text-decoration: underline; text-underline-offset: 4px;
+#err { font-size: 12px; line-height: 6px; height: 6px; }
+#useImg {
+  position: relative; font-size: 20px; line-height: 10px; height: 10px; color: #ccc; cursor: pointer;
+  padding: 14px 20px; margin: -14px -20px; box-sizing: content-box; touch-action: manipulation;
 }
-#fail input { display: none; }
-#err { opacity: .75; max-width: 24em; }
+#useImg::after {   /* Figma 的 Line 1：寬 170、1px，在字框下方 3px */
+  content: ""; position: absolute; left: 50%; top: calc(14px + 13px); width: 170px; height: 1px;
+  margin-left: -85px; background: #ccc;
+}
+#useImg:active { opacity: .5; }
+#useImg input { display: none; }
 
 #hint {
   position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 26px); transform: translateX(-50%);
@@ -77,11 +82,8 @@ canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; background
   <button id="go">Enter</button>
   <div id="title">Black Holes and Revelations</div>
   <div id="fail" hidden>
-    <div id="err"></div>
-    <div class="row">
-      <button id="retry">Retry camera</button>
-      <label>Upload photo / video<input id="file" type="file" accept="image/*,video/*"></label>
-    </div>
+    <div id="err">Camera Unavailable</div>
+    <label id="useImg">Use Device Image<input id="file" type="file" accept="image/*,video/*"></label>
   </div>
 </div>
 <div id="hint" class="bg"></div>
@@ -95,10 +97,11 @@ const num = (k, d) => { const v = parseFloat(P.get(k)); return Number.isFinite(v
 const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', {antialias: false, alpha: false, premultipliedAlpha: false});
 const splash = document.getElementById('splash'), goBtn = document.getElementById('go'), titleEl = document.getElementById('title');
-const failEl = document.getElementById('fail'), errEl = document.getElementById('err');
-function showErr(msg, canRetry = true) {
+const failEl = document.getElementById('fail'), errEl = document.getElementById('err'), useImgEl = document.getElementById('useImg');
+// 拿不到鏡頭：「Camera Unavailable」＋「Use Device Image」。再點 Enter 會重新要一次鏡頭
+function showErr(msg, canUseImage = true) {
   failEl.hidden = !msg;
-  if (msg) { errEl.textContent = msg; failEl.querySelector('.row').hidden = !canRetry; }
+  if (msg) { errEl.textContent = msg; useImgEl.hidden = !canUseImage; }
 }
 // 標題的漸層沿著色相環轉，10 秒一圈（Figma 原本是 紅 0° → #ffe100 約 53°，兩端一起轉）
 let hueT0 = performance.now();
@@ -389,7 +392,7 @@ async function startCamera() {
   if (busy) return;
   busy = true; showErr(null); goBtn.style.opacity = .5;
   try { await openCamera(); enter(); }
-  catch (e) { showErr('Camera unavailable (' + (e.name || e.message) + '). Allow camera access and retry, or upload a photo / video.'); }
+  catch (e) { showErr('Camera Unavailable'); }
   finally { busy = false; goBtn.style.opacity = ''; }
 }
 async function flipCamera() {   // 點兩下：切換前後鏡頭
@@ -402,13 +405,12 @@ async function flipCamera() {   // 點兩下：切換前後鏡頭
   finally { busy = false; }
 }
 goBtn.addEventListener('click', startCamera);
-document.getElementById('retry').addEventListener('click', startCamera);
 const fileIn = document.getElementById('file');
 fileIn.addEventListener('change', () => {
   const f = fileIn.files[0];
   if (!f) return;
   const url = URL.createObjectURL(f);
-  const fail = () => { URL.revokeObjectURL(url); showErr('This file could not be opened.'); };
+  const fail = () => { URL.revokeObjectURL(url); showErr('File Unavailable'); };
   if (f.type.startsWith('video')) {
     const v = document.createElement('video');
     v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.src = url;
@@ -437,8 +439,6 @@ function enter() {
   started = true;
   splash.style.opacity = 0;
   setTimeout(() => { splash.hidden = true; }, 900);
-  setHint(matchMedia('(pointer: fine)').matches ? 'drag ↕ speed · scroll mass · double-click flip · T'
-                                               : 'drag ↕ speed · pinch mass · double-tap flip', 5000);
 }
 
 // ---------------- 調整面板 ----------------
