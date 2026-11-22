@@ -116,11 +116,11 @@ if (!gl) { goBtn.hidden = true; showErr('WebGL2 is not available on this browser
 const Z0 = 10, F = 1.8, HW = 20, XC = 1.5 * Math.sqrt(3);   // XC: 臨界撞擊參數 b = (3√3/2) rs，比它近的光都掉進去
 const N = 56, CAP_FPS = 20, HIST_LONG = 512;                  // 過去的畫面：56 張 × 20fps ≈ 2.8 秒
 const tune = {
-  rs:    {label: 'Mass',   min: 0.004, max: 0.15, step: 0.001, v: num('rs', 0.02),  f: v => v.toFixed(3)},  // 中央黑洞的 rs（越小黑點越小）
+  rs:    {label: 'Mass',   min: 0.004, max: 0.15, step: 0.001, v: num('rs', 0.05),  f: v => v.toFixed(3)},  // 中央黑洞的 rs（越小黑點越小）
   speed: {label: 'Speed',  min: -1.5,  max: 2.0,  step: 0.01,  v: num('speed', 0.25), f: v => v.toFixed(2)}, // 往前飛的速度（每秒放大 e^speed 倍）；負的 = 往後退、被吸進去
-  depth: {label: 'Layers', min: 1.35,  max: 4.0,  step: 0.01,  v: num('depth', 2.4), f: v => v.toFixed(2) + '×'}, // 相鄰兩層框的大小比
-  twist: {label: 'Twist',  min: 0,     max: 1.5,  step: 0.01,  v: num('twist', 0.35), f: v => v.toFixed(2)}, // 每一層自己的黑洞（愛因斯坦環的半徑，框高 = 1）
-  drift: {label: 'Drift',  min: 0,     max: 0.8,  step: 0.01,  v: num('drift', 0.25), f: v => v.toFixed(2)}, // 每一層的黑洞偏離中心多少
+  depth: {label: 'Layers', min: 1.35,  max: 4.0,  step: 0.01,  v: num('depth', 3.0), f: v => v.toFixed(2) + '×'}, // 相鄰兩層框的大小比
+  twist: {label: 'Twist',  min: 0,     max: 1.5,  step: 0.01,  v: num('twist', 0.7), f: v => v.toFixed(2)}, // 每一層自己的黑洞（愛因斯坦環的半徑，框高 = 1）
+  drift: {label: 'Drift',  min: 0,     max: 0.8,  step: 0.01,  v: num('drift', 0.3), f: v => v.toFixed(2)}, // 每一層的黑洞偏離中心多少
   round: {label: 'Round',  min: 0,     max: 1,    step: 0.01,  v: num('round', 1.0), f: v => v.toFixed(2)},   // 框的形狀：0 = 方（螢幕裡的螢幕）、1 = 正圓（隧道）
   delay: {label: 'Past',   min: 0,     max: (N - 1) / CAP_FPS, step: 0.05, v: num('delay', (N - 1) / CAP_FPS), f: v => v.toFixed(2) + 's'}, // 最遠那層是幾秒前
   q:     {label: 'Quality', min: 0,    max: 3,    step: 1,     v: num('q', 0),     f: v => ['high', 'mid', 'low', 'lowest'][v]},
@@ -462,8 +462,8 @@ let manualQ = P.has('q');
   }
 }
 function syncSlider(k) { const o = tune[k], s = sliders[k]; s.r.value = o.v; s.out.textContent = o.f(o.v); }
-// 每層黑洞的公式：精確偏折（預設）／圓反演
-let lensMode = P.get('lens') === 'inversion' ? 1 : 0;
+// 每層黑洞的公式：精確偏折／圓反演（預設）。?lens=exact 可以直接用精確偏折開
+let lensMode = P.get('lens') === 'exact' ? 0 : 1;
 {
   const row = document.createElement('div'); row.className = 'row';
   const l = document.createElement('span'); l.textContent = 'Lens';
