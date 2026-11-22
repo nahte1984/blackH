@@ -120,16 +120,17 @@ const Z0 = 10, F = 1.8, HW = 20, XC = 1.5 * Math.sqrt(3);   // XC: 臨界撞擊�
 const N = 56, CAP_FPS = 20, HIST_LONG = 512;                  // 過去的畫面：56 張 × 20fps ≈ 2.8 秒
 const tune = {
   rs:    {label: 'Mass',   min: 0.004, max: 0.15, step: 0.001, v: num('rs', 0.05),  f: v => v.toFixed(3)},  // 中央黑洞的 rs（越小黑點越小）
-  speed: {label: 'Speed',  min: -1.5,  max: 2.0,  step: 0.01,  v: num('speed', 0.25), f: v => v.toFixed(2)}, // 往前飛的速度（每秒放大 e^speed 倍）；負的 = 往後退、被吸進去
-  depth: {label: 'Layers', min: 1.35,  max: 4.0,  step: 0.01,  v: num('depth', 3.0), f: v => v.toFixed(2) + '×'}, // 相鄰兩層框的大小比
-  twist: {label: 'Twist',  min: 0,     max: 1.5,  step: 0.01,  v: num('twist', 0.7), f: v => v.toFixed(2)}, // 每一層自己的黑洞（愛因斯坦環的半徑，框高 = 1）
+  speed: {label: 'Speed',  min: -1.5,  max: 2.0,  step: 0.01,  v: num('speed', 0.55), f: v => v.toFixed(2)}, // 往前飛的速度（每秒放大 e^speed 倍）；負的 = 往後退、被吸進去
+  depth: {label: 'Layers', min: 1.35,  max: 4.0,  step: 0.01,  v: num('depth', 3.4), f: v => v.toFixed(2) + '×'}, // 相鄰兩層框的大小比
+  twist: {label: 'Twist',  min: 0,     max: 1.5,  step: 0.01,  v: num('twist', 0.5), f: v => v.toFixed(2)}, // 每一層自己的黑洞（愛因斯坦環的半徑，框高 = 1）
   drift: {label: 'Drift',  min: 0,     max: 0.8,  step: 0.01,  v: num('drift', 0.3), f: v => v.toFixed(2)}, // 每一層的黑洞偏離中心多少
+  weave: {label: 'Weave',  min: 0,     max: 1,    step: 0.01,  v: num('weave', 0.3), f: v => v.toFixed(2)},   // 層與層之間交纏的程度：0 = 各自扭曲、用柔邊疊起來；1 = 裡層是透過外層的透鏡看到的
   round: {label: 'Round',  min: 0,     max: 1,    step: 0.01,  v: num('round', 1.0), f: v => v.toFixed(2)},   // 框的形狀：0 = 方（螢幕裡的螢幕）、1 = 正圓（隧道）
   delay: {label: 'Past',   min: 0,     max: (N - 1) / CAP_FPS, step: 0.05, v: num('delay', (N - 1) / CAP_FPS), f: v => v.toFixed(2) + 's'}, // 最遠那層是幾秒前
   q:     {label: 'Quality', min: 0,    max: 3,    step: 1,     v: num('q', 0),     f: v => ['high', 'mid', 'low', 'lowest'][v]},
 };
 const Q = [{dpr: 2, aa: 4}, {dpr: 2, aa: 1}, {dpr: 1.5, aa: 1}, {dpr: 1, aa: 1}];
-const SOFT = 0.08;   // 層與層交界的柔邊（以框的比例）
+const SOFT = 0.04;   // 層與層交界的柔邊（以框的比例）
 
 // ---------------- 光的偏折表：Schwarzschild 精確解 ----------------
 // α(b) = 4√u0 ∫₀¹ dt / √K(t) − π，u = u0(1 − t²)，K = u0 + u − u0² − u0·u − u²（rs = 1，u0 = 1/近日點）
@@ -166,7 +167,7 @@ uniform float uRs;          // 中央黑洞
 uniform float uS0, uK;      // 最深那層框的大小（螢幕單位的半高）、相鄰兩層的比
 uniform int uJ;             // 層數
 uniform float uNewest;      // 最深那層的編號（每層的個性用）
-uniform float uSCover, uSBirth, uT, uTwist, uDrift, uDelay, uP, uAx;   // uP: 框的超橢圓次方；uAx: 框的橫向半徑（Round = 1 時等於縱向 → 正圓）
+uniform float uSCover, uSBirth, uT, uTwist, uDrift, uDelay, uP, uAx, uWeave;   // uP: 框的超橢圓次方；uAx: 框的橫向半徑（Round = 1 時等於縱向 → 正圓）
 uniform int uAA;
 uniform int uMode;          // 每層自己的黑洞：0 = 精確偏折，1 = 圓反演（弱場點透鏡）
 uniform sampler2D uAlpha;
@@ -202,12 +203,13 @@ vec3 fetch(vec2 tc, float dsec){
 
 // 一層框的顏色。q 是打到這層框上的位置（框的半高 = 1）
 // 這層框本身也是「被它自己的黑洞彎過」的畫面：點透鏡方程 β = θ − θE² θ/|θ|²（第一次扭曲）
-vec3 layerColor(vec2 q, float id, float S){
+// 一層框前面的小黑洞：打到這層的位置 q → 光原本來自框上的哪裡 β。回傳 z = 1 表示掉進了這顆小黑洞
+vec3 selfLens(vec2 q, float id){
   float ph = id * 2.39996 + uT * 0.21;                 // 每層的黑洞偏一點，方向按黃金角錯開、慢慢轉
   vec2 d = q - uDrift * vec2(cos(ph), sin(ph));
   float r = length(d);
   const float RC = 0.05;                               // 這層黑洞的影子半徑（框高 = 1）
-  if (r < RC) return vec3(0.0);
+  if (r < RC) return vec3(q, 1.0);
   vec2 beta;
   if (uMode == 1) {
     // 圓反演：弱場點透鏡 β = q − θE² d/|d|²。靠近中心時 ≈ −θE²/d̄，把無限遠的鏡像平鋪壓進小圈 → 萬花筒
@@ -220,12 +222,17 @@ vec3 layerColor(vec2 q, float id, float S){
     br = abs(mod(br - 1.0, 4.0) - 2.0) - 1.0;
     beta = q - d + br * d / r;
   }
+  return vec3(beta, 0.0);
+}
+
+// 框上 β 那一點的顏色。越深（越小）的框越遠，光走得越久 → 越久以前的畫面
+vec3 layerColor(vec2 beta, float S){
   vec2 tc = vec2(beta.x / (2.0 * uAspect) + 0.5, 0.5 - 0.5 * beta.y);
   if (uMirror > 0.5) tc.x = 1.0 - tc.x;
-  // 越深（越小）的框越遠，光走得越久 → 越久以前的畫面
   float dsec = uDelay * clamp(log(uSCover / S) / log(uSCover / uSBirth), 0.0, 1.0);
   return fetch(tc, dsec);
 }
+float frameNorm(vec2 p){ return pow(pow(abs(p.x) / uAx, uP) + pow(abs(p.y), uP), 1.0 / uP); }
 
 vec3 shade(vec2 uv){
   float rho = length(uv);
@@ -235,7 +242,7 @@ vec3 shade(vec2 uv){
   float b = Z0 * rho / hyp;                            // 撞擊參數
   float x = b / uRs;
   if (x <= XC) return vec3(0.0);                       // 中央黑洞的影子
-  // 第二次扭曲：中央黑洞把光線轉了 α。出射的直線 = 入射直線繞黑洞轉 −α
+  // 中央黑洞把光線轉了 α。出射的直線 = 入射直線繞黑洞轉 −α
   float a = deflect(x);
   float ca = cos(a), sa = sin(a);
   float dS = cos(th - a), dY = sin(th - a);
@@ -243,20 +250,33 @@ vec3 shade(vec2 uv){
   if (dS < 0.05) { dS = max(abs(dS), 0.05); dim = 0.8; }   // 被彎回來的光（光子環）
   vec3 acc = vec3(0.0);
   float rem = 1.0;
-  // 從最近（最大）的框往深處找：落在框的「邊」上就看到它，落在中間的洞就繼續往深處
+  float hole = 1.0 / uK;
+  vec2 off = vec2(0.0);   // 外層的小黑洞一路累積下來的偏折（螢幕單位）：往深處看，其實是透過外層的透鏡在看
+  // 從最近（最大）的框往深處找：落在框上就看到它，落在中間的洞就穿過去、繼續往深處
   for (int j = 15; j >= 0; j--){
     if (j >= uJ) continue;
     float S = uS0 * pow(uK, float(j));
     float D = HW * F / S - Z0;                         // 這層框離黑洞多遠
     float y = Z0 * sa + (D + Z0 * ca) / dS * dY;       // 光線打到那個平面的位置（深的框被彎得多）
-    vec2 q = e * (y / HW);
-    float n = pow(pow(abs(q.x) / uAx, uP) + pow(abs(q.y), uP), 1.0 / uP);
-    float hole = 1.0 / uK;
+    vec2 q = e * (y / HW) + off / S;
+    vec3 L = selfLens(q, uNewest - float(j));
+    if (L.z > 0.5) break;                              // 掉進這層的小黑洞：剩下的光沒了
+    vec2 beta = L.xy;
+    // 快飛過去的框（已經比螢幕大、正要被移出計算）對裡層的影響慢慢退掉，像真的從它旁邊穿過去；
+    // 不然它被拿掉的那一刻，透過它看到的整個畫面會一起跳
+    // 退場跨兩層的飛行距離、用餘弦曲線：同時有兩層在慢慢退，整體的變化速度一直差不多
+    float ff = clamp((log(S / uSCover) / log(uK) + 1.0) / 2.0, 0.0, 1.0);
+    float wv = uWeave * (0.5 + 0.5 * cos(3.14159265 * ff));
+    // 洞是開在框上的，所以從小黑洞的這一側看過去，洞的邊也被扭曲（Weave = 0：洞是規則的圓）
+    float n = frameNorm(mix(q, beta, wv));
     float w = j == 0 ? 1.0 : smoothstep(hole, hole * (1.0 + SOFT), n);
-    if (w <= 0.0) continue;
-    acc += rem * w * layerColor(q, uNewest - float(j), S);
-    rem *= 1.0 - w;
-    if (rem < 0.004) break;
+    if (w > 0.0) {
+      acc += rem * w * layerColor(beta, S);
+      rem *= 1.0 - w;
+      if (rem < 0.004) break;
+    }
+    // 穿過洞的光已經被這層的小黑洞彎過，帶著這個偏折繼續往深處 → 裡面的層也被外層的透鏡再扭一次
+    off += (beta - q) * S * wv;
   }
   return acc * dim;
 }
@@ -294,7 +314,7 @@ const pLoc = gl.getAttribLocation(prog, 'p');
 gl.enableVertexAttribArray(pLoc);
 gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
 const U = {};
-for (const n of ['uRes', 'uRs', 'uS0', 'uK', 'uJ', 'uNewest', 'uSCover', 'uSBirth', 'uT', 'uTwist', 'uDrift', 'uDelay', 'uP', 'uAx',
+for (const n of ['uRes', 'uRs', 'uS0', 'uK', 'uJ', 'uNewest', 'uSCover', 'uSBirth', 'uT', 'uTwist', 'uDrift', 'uDelay', 'uP', 'uAx', 'uWeave',
                  'uAA', 'uMode', 'uAlpha', 'uCapFps', 'uHead', 'uFilled', 'uAspect', 'uMirror', 'uLive', 'uHist'])
   U[n] = gl.getUniformLocation(prog, n);
 gl.uniform1i(U.uLive, 0);
@@ -586,6 +606,7 @@ function frame(now) {
   gl.uniform1f(U.uDelay, tune.delay.v);
   gl.uniform1f(U.uP, pw);
   gl.uniform1f(U.uAx, ax);
+  gl.uniform1f(U.uWeave, tune.weave.v);
   gl.uniform1i(U.uAA, Q[tune.q.v].aa);
   gl.uniform1i(U.uMode, lensMode);
   gl.uniform1f(U.uCapFps, CAP_FPS);
