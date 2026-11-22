@@ -64,6 +64,10 @@ canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; background
 #panel .row { display: grid; grid-template-columns: 58px 1fr 50px; gap: 8px; align-items: center; min-height: 30px; }
 #panel input[type=range] { width: 100%; accent-color: #fff; }
 #panel output { text-align: right; font-variant-numeric: tabular-nums; }
+#panel .seg { display: flex; border: 1px solid rgba(255,255,255,.45); border-radius: 999px; overflow: hidden; }
+#panel .seg button { flex: 1; font: inherit; color: #eee; background: none; border: 0; padding: 6px 0; cursor: pointer; }
+#panel .seg button + button { border-left: 1px solid rgba(255,255,255,.45); }
+#panel .seg button.on { background: #eee; color: #111; }
 </style>
 </head>
 <body>
@@ -114,9 +118,9 @@ const N = 56, CAP_FPS = 20, HIST_LONG = 512;                  // 過去的畫面
 const tune = {
   rs:    {label: 'Mass',   min: 0.004, max: 0.15, step: 0.001, v: num('rs', 0.02),  f: v => v.toFixed(3)},  // 中央黑洞的 rs（越小黑點越小）
   speed: {label: 'Speed',  min: -1.5,  max: 2.0,  step: 0.01,  v: num('speed', 0.25), f: v => v.toFixed(2)}, // 往前飛的速度（每秒放大 e^speed 倍）；負的 = 往後退、被吸進去
-  depth: {label: 'Layers', min: 1.35,  max: 4.0,  step: 0.01,  v: num('depth', 3.0), f: v => v.toFixed(2) + '×'}, // 相鄰兩層框的大小比
-  twist: {label: 'Twist',  min: 0,     max: 1.5,  step: 0.01,  v: num('twist', 1.0), f: v => v.toFixed(2)}, // 每一層自己的黑洞（愛因斯坦環的半徑，框高 = 1）
-  drift: {label: 'Drift',  min: 0,     max: 0.8,  step: 0.01,  v: num('drift', 0.4), f: v => v.toFixed(2)}, // 每一層的黑洞偏離中心多少
+  depth: {label: 'Layers', min: 1.35,  max: 4.0,  step: 0.01,  v: num('depth', 2.4), f: v => v.toFixed(2) + '×'}, // 相鄰兩層框的大小比
+  twist: {label: 'Twist',  min: 0,     max: 1.5,  step: 0.01,  v: num('twist', 0.35), f: v => v.toFixed(2)}, // 每一層自己的黑洞（愛因斯坦環的半徑，框高 = 1）
+  drift: {label: 'Drift',  min: 0,     max: 0.8,  step: 0.01,  v: num('drift', 0.25), f: v => v.toFixed(2)}, // 每一層的黑洞偏離中心多少
   round: {label: 'Round',  min: 0,     max: 1,    step: 0.01,  v: num('round', 1.0), f: v => v.toFixed(2)},   // 框的形狀：0 = 方（螢幕裡的螢幕）、1 = 正圓（隧道）
   delay: {label: 'Past',   min: 0,     max: (N - 1) / CAP_FPS, step: 0.05, v: num('delay', (N - 1) / CAP_FPS), f: v => v.toFixed(2) + 's'}, // 最遠那層是幾秒前
   q:     {label: 'Quality', min: 0,    max: 3,    step: 1,     v: num('q', 0),     f: v => ['high', 'mid', 'low', 'lowest'][v]},
@@ -161,6 +165,7 @@ uniform int uJ;             // 層數
 uniform float uNewest;      // 最深那層的編號（每層的個性用）
 uniform float uSCover, uSBirth, uT, uTwist, uDrift, uDelay, uP, uAx;   // uP: 框的超橢圓次方；uAx: 框的橫向半徑（Round = 1 時等於縱向 → 正圓）
 uniform int uAA;
+uniform int uMode;          // 每層自己的黑洞：0 = 精確偏折，1 = 圓反演（弱場點透鏡）
 uniform sampler2D uAlpha;
 uniform float uCapFps, uHead, uFilled, uAspect, uMirror;
 uniform sampler2D uLive;
@@ -197,9 +202,21 @@ vec3 fetch(vec2 tc, float dsec){
 vec3 layerColor(vec2 q, float id, float S){
   float ph = id * 2.39996 + uT * 0.21;                 // 每層的黑洞偏一點，方向按黃金角錯開、慢慢轉
   vec2 d = q - uDrift * vec2(cos(ph), sin(ph));
-  float r2 = dot(d, d);
-  if (r2 < 0.0025) return vec3(0.0);                   // 這層自己的黑洞（通常被更深的層擋住）
-  vec2 beta = q - uTwist * uTwist * d / r2;
+  float r = length(d);
+  const float RC = 0.05;                               // 這層黑洞的影子半徑（框高 = 1）
+  if (r < RC) return vec3(0.0);
+  vec2 beta;
+  if (uMode == 1) {
+    // 圓反演：弱場點透鏡 β = q − θE² d/|d|²。靠近中心時 ≈ −θE²/d̄，把無限遠的鏡像平鋪壓進小圈 → 萬花筒
+    beta = q - uTwist * uTwist * d / (r * r);
+  } else {
+    // 精確偏折：跟中央黑洞同一張 Schwarzschild 偏折表。λ 讓遠處跟弱場一致（愛因斯坦環一樣在 θE）
+    float lam = XC * uTwist * uTwist / (2.0 * RC);
+    float br = r - lam * deflect(XC * r / RC);         // 以這顆黑洞為中心的徑向位置（負的 = 跑到對面）
+    // 偏出框外的光不落到無限遠的平鋪上，而是像天空包著黑洞一樣在半徑方向折回 → 只有一圈圈的光子環
+    br = abs(mod(br - 1.0, 4.0) - 2.0) - 1.0;
+    beta = q - d + br * d / r;
+  }
   vec2 tc = vec2(beta.x / (2.0 * uAspect) + 0.5, 0.5 - 0.5 * beta.y);
   if (uMirror > 0.5) tc.x = 1.0 - tc.x;
   // 越深（越小）的框越遠，光走得越久 → 越久以前的畫面
@@ -275,7 +292,7 @@ gl.enableVertexAttribArray(pLoc);
 gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
 const U = {};
 for (const n of ['uRes', 'uRs', 'uS0', 'uK', 'uJ', 'uNewest', 'uSCover', 'uSBirth', 'uT', 'uTwist', 'uDrift', 'uDelay', 'uP', 'uAx',
-                 'uAA', 'uAlpha', 'uCapFps', 'uHead', 'uFilled', 'uAspect', 'uMirror', 'uLive', 'uHist'])
+                 'uAA', 'uMode', 'uAlpha', 'uCapFps', 'uHead', 'uFilled', 'uAspect', 'uMirror', 'uLive', 'uHist'])
   U[n] = gl.getUniformLocation(prog, n);
 gl.uniform1i(U.uLive, 0);
 gl.uniform1i(U.uHist, 1);
@@ -445,6 +462,21 @@ let manualQ = P.has('q');
   }
 }
 function syncSlider(k) { const o = tune[k], s = sliders[k]; s.r.value = o.v; s.out.textContent = o.f(o.v); }
+// 每層黑洞的公式：精確偏折（預設）／圓反演
+let lensMode = P.get('lens') === 'inversion' ? 1 : 0;
+{
+  const row = document.createElement('div'); row.className = 'row';
+  const l = document.createElement('span'); l.textContent = 'Lens';
+  const seg = document.createElement('div'); seg.className = 'seg'; seg.style.gridColumn = '2 / 4';
+  const btns = ['Exact', 'Inversion'].map((name, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = name;
+    b.addEventListener('click', () => { lensMode = i; btns.forEach((x, k) => x.classList.toggle('on', k === lensMode)); });
+    return b;
+  });
+  btns.forEach((x, k) => x.classList.toggle('on', k === lensMode));
+  seg.append(...btns); row.append(l, seg);
+  panel.insertBefore(row, sliders.twist.r.closest('.row'));
+}
 const togglePanel = () => { panel.hidden = !panel.hidden; };
 if (P.has('panel')) panel.hidden = false;
 addEventListener('keydown', e => { if (e.key === 't' || e.key === 'T') togglePanel(); });
@@ -555,6 +587,7 @@ function frame(now) {
   gl.uniform1f(U.uP, pw);
   gl.uniform1f(U.uAx, ax);
   gl.uniform1i(U.uAA, Q[tune.q.v].aa);
+  gl.uniform1i(U.uMode, lensMode);
   gl.uniform1f(U.uCapFps, CAP_FPS);
   gl.uniform1f(U.uHead, Math.max(head, 0));
   gl.uniform1f(U.uFilled, hist ? filled : 0);
