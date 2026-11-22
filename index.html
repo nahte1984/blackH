@@ -3,56 +3,65 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>blackH</title>
+<title>Black Holes and Revelations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&display=swap" rel="stylesheet">
 <style>
-/* blackH — 鏡頭畫面是背景，黑洞不是畫出來的：每個像素的光線照著 Schwarzschild 的光路方程走，
-   走到背景就讀鏡頭畫面，掉進視界就是黑。陰影、光子環、愛因斯坦環都是算出來的結果。 */
+/* blackH v2 — 坐在太空船上一直往前飛。
+   畫面中央一個很小的黑洞；它後面是一層一層的畫面框，越遠的框越小、光要走越久，所以顯示的是越久以前的你。
+   框一路朝你飛過來、往外展開，邊飛邊追上現在。
+   每一層框本身也被「它自己的黑洞」彎過一次，再被中央的黑洞彎第二次 → 扭曲兩次。 */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 html, body {
-  margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: #000; color: #fff;
+  margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: #313131; color: #ccc;
   touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
-  font: 400 13px/1.4 "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif; letter-spacing: .04em;
 }
-canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; }
+canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; background: #000; }
+.bg { font-family: "Bricolage Grotesque", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 600;
+  font-variation-settings: "opsz" 14, "wdth" 100; }
 
-/* ---- 開始畫面（背後就是同一個 shader，彎曲的是公式本身） ---- */
+/* ---- 開始畫面（Figma: layouts-II） ---- */
 #splash {
-  position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-  padding: calc(env(safe-area-inset-top, 0px) + 18px) 20px calc(env(safe-area-inset-bottom, 0px) + 34px);
-  pointer-events: none; transition: opacity .9s;
+  position: fixed; inset: 0; background: #313131;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+  font-size: 24px; line-height: 12px; text-align: center; white-space: nowrap; transition: opacity .9s;
 }
-#splash .top { align-self: stretch; display: flex; justify-content: space-between; font-size: 11px; opacity: .65; }
-#splash .bottom { display: flex; flex-direction: column; align-items: center; gap: 14px; pointer-events: auto; }
-button, .btn {
-  font: inherit; color: #fff; background: rgba(0,0,0,.38); border: 1px solid rgba(255,255,255,.9); border-radius: 999px;
-  min-height: 48px; padding: 0 26px; cursor: pointer; touch-action: manipulation;
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-  display: inline-flex; align-items: center; justify-content: center; letter-spacing: .18em; font-size: 13px;
+#go {
+  font: inherit; font-variation-settings: inherit; line-height: 12px; color: #ccc; background: none; border: 0; cursor: pointer;
+  padding: 16px 28px; margin: -16px -28px; touch-action: manipulation; transition: opacity .2s;
 }
-#go { min-height: 56px; padding: 0 36px; font-size: 16px; letter-spacing: .26em; animation: breathe 4s ease-in-out infinite; }
-@keyframes breathe { 50% { box-shadow: 0 0 26px rgba(255,255,255,.32); } }
-.note { font-size: 11px; opacity: .55; }
-#err { max-width: 28em; text-align: center; font-size: 12px; line-height: 1.6; white-space: pre-line; opacity: .9; }
-.alt { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-.alt button, .alt .btn { font-size: 12px; min-height: 44px; padding: 0 18px; letter-spacing: .14em; }
-.btn input { display: none; }
+#go:active { opacity: .5; }
+#title { color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(90deg, #f00, #ffe100); padding: 6px 0; margin: -6px 0; }
+#fail {
+  position: absolute; left: 0; right: 0; top: calc(50% + 56px); display: flex; flex-direction: column; align-items: center; gap: 14px;
+  font-size: 13px; line-height: 1.5; white-space: normal; padding: 0 24px;
+}
+#fail .row { display: flex; gap: 22px; }
+#fail button, #fail label {
+  font: inherit; font-variation-settings: inherit; color: #ccc; background: none; border: 0; padding: 8px 0; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 4px;
+}
+#fail input { display: none; }
+#err { opacity: .75; max-width: 24em; }
 
 #hint {
   position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 26px); transform: translateX(-50%);
-  width: max-content; max-width: calc(100% - 32px); padding: 8px 16px; border-radius: 999px;
-  background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.35); font-size: 12px; letter-spacing: .12em;
+  width: max-content; max-width: calc(100% - 32px); padding: 9px 16px 8px; border-radius: 999px;
+  background: rgba(49,49,49,.62); font-size: 13px; line-height: 1.2; letter-spacing: .02em;
   pointer-events: none; transition: opacity .8s; opacity: 0;
 }
 
-/* ---- 調整面板（T 鍵；手機用三指點一下） ---- */
+/* ---- 調整面板（T 鍵；手機三指點一下） ---- */
 #panel {
-  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 10px; width: min(290px, calc(100% - 20px));
-  padding: 8px 12px 10px; background: rgba(0,0,0,.74); border: 1px solid rgba(255,255,255,.28); border-radius: 12px;
-  font: 11px/1.3 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0; touch-action: pan-y;
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 10px; width: min(300px, calc(100% - 20px));
+  padding: 8px 12px 10px; background: rgba(0,0,0,.74); border: 1px solid rgba(255,255,255,.25); border-radius: 12px;
+  color: #eee; font: 11px/1.3 ui-monospace, Menlo, Consolas, monospace; touch-action: pan-y;
 }
 #panel .head { display: flex; justify-content: space-between; opacity: .6; padding: 2px 0 6px; }
-#panel .row { display: grid; grid-template-columns: 64px 1fr 46px; gap: 8px; align-items: center; min-height: 30px; }
+#panel .row { display: grid; grid-template-columns: 58px 1fr 50px; gap: 8px; align-items: center; min-height: 30px; }
 #panel input[type=range] { width: 100%; accent-color: #fff; }
 #panel output { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
@@ -60,19 +69,18 @@ button, .btn {
 <body>
 <canvas id="c"></canvas>
 
-<div id="splash">
-  <div class="top"><span>blackH</span><span>light / time / you</span></div>
-  <div class="bottom">
-    <button id="go">FALL→IN</button>
-    <div id="err" hidden></div>
-    <div class="alt" id="alt" hidden>
-      <button id="retry">RETRY CAMERA</button>
-      <label class="btn">UPLOAD PHOTO / VIDEO<input id="file" type="file" accept="image/*,video/*"></label>
+<div id="splash" class="bg">
+  <button id="go">Enter</button>
+  <div id="title">Black Holes and Revelations</div>
+  <div id="fail" hidden>
+    <div id="err"></div>
+    <div class="row">
+      <button id="retry">Retry camera</button>
+      <label>Upload photo / video<input id="file" type="file" accept="image/*,video/*"></label>
     </div>
-    <div class="note">camera stays on this device</div>
   </div>
 </div>
-<div id="hint"></div>
+<div id="hint" class="bg"></div>
 <div id="panel" hidden></div>
 
 <script>
@@ -82,27 +90,61 @@ const num = (k, d) => { const v = parseFloat(P.get(k)); return Number.isFinite(v
 
 const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', {antialias: false, alpha: false, premultipliedAlpha: false});
-const splash = document.getElementById('splash'), goBtn = document.getElementById('go');
-const errEl = document.getElementById('err'), altEl = document.getElementById('alt');
-function showErr(msg) {
-  errEl.hidden = altEl.hidden = !msg;
-  if (msg) errEl.textContent = msg;
+const splash = document.getElementById('splash'), goBtn = document.getElementById('go'), titleEl = document.getElementById('title');
+const failEl = document.getElementById('fail'), errEl = document.getElementById('err');
+function showErr(msg, canRetry = true) {
+  failEl.hidden = !msg;
+  if (msg) { errEl.textContent = msg; failEl.querySelector('.row').hidden = !canRetry; }
 }
-if (!gl) { goBtn.hidden = true; showErr('WebGL2 is not available on this browser.'); altEl.hidden = true; throw new Error('no webgl2'); }
+// 標題的漸層沿著色相環轉，10 秒一圈（Figma 原本是 紅 0° → #ffe100 約 53°，兩端一起轉）
+let hueT0 = performance.now();
+function hueLoop(now) {
+  if (splash.hidden) return;
+  const h = ((now - hueT0) / 10000 * 360) % 360;
+  titleEl.style.backgroundImage = `linear-gradient(90deg, hsl(${h.toFixed(1)},100%,50%), hsl(${(h + 53).toFixed(1)},100%,50%))`;
+  requestAnimationFrame(hueLoop);
+}
+requestAnimationFrame(hueLoop);
+if (!gl) { goBtn.hidden = true; showErr('WebGL2 is not available on this browser.', false); throw new Error('no webgl2'); }
 
 // ---------------- 場景 ----------------
-// 相機在 z = Z0 往 -z 看；黑洞在 z = 0 的平面上；鏡頭畫面貼在黑洞後方 z = -Distance 的平面
-const Z0 = 10, F = 1.8;
-// 時間：黑洞附近繞遠路、又被時空拖慢的光比較晚到 → 那裡顯示的是過去的畫面
-const N = 56, CAP_FPS = 20, HIST_LONG = 512;      // 56 張 × 20fps ≈ 2.8 秒的過去
-
+// 相機在 z = Z0 往前看；中央黑洞在原點；畫面框（世界裡的半高 HW）一層層排在黑洞後面
+const Z0 = 10, F = 1.8, HW = 20, XC = 1.5 * Math.sqrt(3);   // XC: 臨界撞擊參數 b = (3√3/2) rs，比它近的光都掉進去
+const N = 56, CAP_FPS = 20, HIST_LONG = 512;                  // 過去的畫面：56 張 × 20fps ≈ 2.8 秒
 const tune = {
-  rs:   {label: 'Mass',     min: 0.08, max: 1.2, step: 0.01, v: num('rs', 0.28), f: v => v.toFixed(2)},   // 史瓦西半徑 rs
-  dp:   {label: 'Distance', min: 1,    max: 30,  step: 0.1,  v: num('dp', 8),   f: v => v.toFixed(1)},   // 黑洞到背景（鏡頭畫面）的距離
-  gain: {label: 'Time',     min: 0,    max: 1.5, step: 0.01, v: num('gain', 0.4), f: v => v.toFixed(2) + 's'}, // 光多走的路換成幾秒的延遲
-  q:    {label: 'Quality',  min: 0,    max: 4,   step: 1,    v: num('q', 0),    f: v => ['high', 'mid', 'mid−', 'low', 'lowest'][v]},
+  rs:    {label: 'Mass',   min: 0.004, max: 0.15, step: 0.001, v: num('rs', 0.02),  f: v => v.toFixed(3)},  // 中央黑洞的 rs（越小黑點越小）
+  speed: {label: 'Speed',  min: -1.5,  max: 2.0,  step: 0.01,  v: num('speed', 0.5), f: v => v.toFixed(2)}, // 往前飛的速度（每秒放大 e^speed 倍）；負的 = 往後退、被吸進去
+  depth: {label: 'Layers', min: 1.35,  max: 3.0,  step: 0.01,  v: num('depth', 1.9), f: v => v.toFixed(2) + '×'}, // 相鄰兩層框的大小比
+  twist: {label: 'Twist',  min: 0,     max: 1.0,  step: 0.01,  v: num('twist', 0.62), f: v => v.toFixed(2)}, // 每一層自己的黑洞（愛因斯坦環的半徑，框高 = 1）
+  drift: {label: 'Drift',  min: 0,     max: 0.4,  step: 0.01,  v: num('drift', 0.14), f: v => v.toFixed(2)}, // 每一層的黑洞偏離中心多少
+  round: {label: 'Round',  min: 0,     max: 1,    step: 0.01,  v: num('round', 0.6), f: v => v.toFixed(2)},   // 框的形狀：0 = 方（螢幕裡的螢幕）、1 = 橢圓（隧道）
+  delay: {label: 'Past',   min: 0,     max: (N - 1) / CAP_FPS, step: 0.05, v: num('delay', 2.4), f: v => v.toFixed(2) + 's'}, // 最遠那層是幾秒前
+  q:     {label: 'Quality', min: 0,    max: 3,    step: 1,     v: num('q', 0),     f: v => ['high', 'mid', 'low', 'lowest'][v]},
 };
-const Q = [{dpr: 2, aa: 4}, {dpr: 1.5, aa: 4}, {dpr: 1.5, aa: 1}, {dpr: 1, aa: 1}, {dpr: 0.75, aa: 1}];
+const Q = [{dpr: 2, aa: 4}, {dpr: 2, aa: 1}, {dpr: 1.5, aa: 1}, {dpr: 1, aa: 1}];
+const SOFT = 0.08;   // 層與層交界的柔邊（以框的比例）
+
+// ---------------- 光的偏折表：Schwarzschild 精確解 ----------------
+// α(b) = 4√u0 ∫₀¹ dt / √K(t) − π，u = u0(1 − t²)，K = u0 + u − u0² − u0·u − u²（rs = 1，u0 = 1/近日點）
+// 只跟 b/rs 有關，所以一開始算一次就好。查表的變數 y = ln(b/rs − XC)，越靠近臨界值越細
+const AN = 1024, AY0 = -16, AY1 = 8.3;
+function deflection(r0) {
+  const u0 = 1 / r0, xi0 = -18, M = 600, h = -xi0 / M;     // t = e^ξ：把光子球附近的尖峰攤開
+  const g = t => { const u = u0 * (1 - t * t); return 1 / Math.sqrt(Math.max(u0 + u - u0 * u0 - u0 * u - u * u, 1e-300)); };
+  let s = 0;
+  for (let i = 0; i <= M; i++) { const t = Math.exp(xi0 + i * h); s += (i === 0 || i === M ? 1 : i % 2 ? 4 : 2) * t * g(t); }
+  return 4 * Math.sqrt(u0) * (s * h / 3 + Math.exp(xi0) * g(0)) - Math.PI;
+}
+function r0ForB(x) {   // b(r0) = √(r0³ / (r0 − 1)) 反解
+  let lo = Math.log(1.5), hi = Math.log(1e7);
+  for (let k = 0; k < 90; k++) {
+    const m = (lo + hi) / 2, r = Math.exp(m);
+    if (Math.sqrt(r * r * r / (r - 1)) < x) lo = m; else hi = m;
+  }
+  return Math.exp((lo + hi) / 2);
+}
+const alphaTable = new Float32Array(AN);
+for (let i = 0; i < AN; i++) alphaTable[i] = deflection(r0ForB(XC + Math.exp(AY0 + (AY1 - AY0) * i / (AN - 1))));
 
 // ---------------- shader ----------------
 const vs = `#version 300 es
@@ -113,95 +155,101 @@ precision highp float;
 precision highp sampler2DArray;
 out vec4 o;
 uniform vec2 uRes;
-uniform vec2 uBH;        // 黑洞的位置（世界座標 xy，z = 0）
-uniform float uRs;       // 史瓦西半徑 rs = 2GM/c²
-uniform float uDp;       // 黑洞到背景平面的距離
-uniform float uGain;     // 延遲：每單位多走的路 = 幾秒
-uniform float uCapFps, uHead, uFilled, uAspect, uMirror;
+uniform float uRs;          // 中央黑洞
+uniform float uS0, uK;      // 最深那層框的大小（螢幕單位的半高）、相鄰兩層的比
+uniform int uJ;             // 層數
+uniform float uNewest;      // 最深那層的編號（每層的個性用）
+uniform float uSCover, uSBirth, uT, uTwist, uDrift, uDelay, uP;   // uP: 框的超橢圓次方
 uniform int uAA;
-uniform sampler2D uLive;          // 現在的畫面
-uniform sampler2DArray uHist;     // 過去的畫面（環狀緩衝）
-const float Z0 = ${Z0.toFixed(1)}, F = ${F.toFixed(1)}, DB = Z0 + 4.0;   // DB: 觀者背後的平面（被彎回來的光）
-const float NH = ${N}.0;
+uniform sampler2D uAlpha;
+uniform float uCapFps, uHead, uFilled, uAspect, uMirror;
+uniform sampler2D uLive;
+uniform sampler2DArray uHist;
+const float Z0 = ${Z0.toFixed(1)}, F = ${F.toFixed(1)}, HW = ${HW.toFixed(1)}, XC = ${XC.toFixed(9)};
+const float NH = ${N}.0, AN = ${AN}.0, AY0 = ${AY0.toFixed(2)}, AY1 = ${AY1.toFixed(2)}, SOFT = ${SOFT};
 const vec2 OFF[4] = vec2[4](vec2(0.125, 0.375), vec2(-0.375, 0.125), vec2(-0.125, -0.375), vec2(0.375, -0.125));
 
-// 背景平面上的點 → 鏡頭畫面的貼圖座標（不彎曲時剛好鋪滿螢幕；超出畫面的部分鏡像延伸）
-vec2 toTex(vec2 p, bool back){
-  float m = min(uRes.x, uRes.y);
-  vec2 sc = p * F / (Z0 + uDp) * m / uRes + 0.5;
-  float sa = uRes.x / uRes.y;
-  if (uAspect > sa) sc.x = (sc.x - 0.5) * sa / uAspect + 0.5;
-  else              sc.y = (sc.y - 0.5) * uAspect / sa + 0.5;
-  if ((uMirror > 0.5) != back) sc.x = 1.0 - sc.x;
-  sc.y = 1.0 - sc.y;
-  return sc;
+// 偏折角 α(b/rs)：查表；很遠的地方用弱場展開 α ≈ 2/x + (15π/16)/x²
+float deflect(float x){
+  float y = log(x - XC);
+  if (y >= AY1) { float ix = 1.0 / x; return 2.0 * ix + 2.94524 * ix * ix; }
+  float f = clamp((y - AY0) / (AY1 - AY0), 0.0, 1.0) * (AN - 1.0);
+  float i0 = floor(f);
+  float a0 = texelFetch(uAlpha, ivec2(int(i0), 0), 0).r;
+  float a1 = texelFetch(uAlpha, ivec2(int(min(i0 + 1.0, AN - 1.0)), 0), 0).r;
+  return mix(a0, a1, f - i0);
 }
 
-// 延遲 dsec 秒前的畫面。延遲很小的地方直接用即時畫面（清晰），越晚到越換成過去的畫面
+// dsec 秒前的畫面。幾乎沒延遲的地方用即時畫面（清晰）
 vec3 fetch(vec2 tc, float dsec){
-  vec3 live = texture(uLive, tc).rgb;
-  if (uFilled < 0.5) return live;
+  if (uFilled < 0.5 || dsec < 0.03) return texture(uLive, tc).rgb;
   float fb = clamp(dsec * uCapFps, 0.0, uFilled - 1.0);
-  float i0 = floor(fb), f = fb - i0;
+  float i0 = floor(fb);
   float l0 = mod(uHead - i0 + NH, NH);
   float l1 = mod(uHead - min(i0 + 1.0, uFilled - 1.0) + NH, NH);
-  vec3 h = mix(texture(uHist, vec3(tc, l0)).rgb, texture(uHist, vec3(tc, l1)).rgb, f);
-  return mix(h, live, 1.0 - smoothstep(0.03, 0.15, dsec));
+  vec3 h = mix(texture(uHist, vec3(tc, l0)).rgb, texture(uHist, vec3(tc, l1)).rgb, fb - i0);
+  float wl = 1.0 - smoothstep(0.03, 0.15, dsec);
+  return wl > 0.0 ? mix(h, texture(uLive, tc).rgb, wl) : h;
 }
 
-// 一條光線。真正的「原因」只有一行：
-//   x'' = -(3/2) rs h² x / |x|^5     （h = |x × x'|，跟 d²u/dφ² + u = (3/2) rs u² 是同一條光路）
-vec3 trace(vec2 uv){
-  vec3 rd = normalize(vec3(uv, -F));
-  vec3 B = vec3(uBH, 0.0);
-  vec3 x = vec3(0.0, 0.0, Z0) - B, v = rd;      // 以黑洞為原點
-  float rs = uRs;
-  vec3 hv = cross(x, v);
-  float k = 1.5 * rs * dot(hv, hv);
-  float pot = 0.0, L = 0.0;                     // pot: 時空拖慢的時間；L: 實際走的路
-  int hit = 0;                                  // 1 = 背景平面，2 = 被彎回觀者背後
-  for (int i = 0; i < 240; i++){
-    float r = length(x);
-    if (r > Z0 + uDp + 4.0 && dot(x, v) > 0.0) break;   // 已經遠離 → 之後當直線
-    float ds = clamp(0.08 * r * max(1.0, r / (5.0 * rs)), 0.004, 1.5);   // 越靠近走得越細；遠處彎得少，大步走
-    float dl = ds / length(v);
-    v += (-k * x / (r*r*r*r*r)) * (0.5 * dl);           // velocity Verlet
-    vec3 xn = x + v * dl;
-    float rn = length(xn);
-    if (rn < rs) return vec3(0.0);                      // 掉進事件視界
-    v += (-k * xn / (rn*rn*rn*rn*rn)) * (0.5 * dl);
-    float seg = length(xn - x), rm = 0.5 * (r + rn);
-    pot += seg * rs * rs / (rm * max(rm - rs, 0.02 * rs));   // 越接近 rs，時間越慢（遠處 ∝ 1/r² 很快消失）
-    L += seg;
-    x = xn;
-    if (x.z <= -uDp && v.z < 0.0) { hit = 1; break; }
-    if (x.z >= DB  && v.z > 0.0) { hit = 2; break; }
+// 一層框的顏色。q 是打到這層框上的位置（框的半高 = 1）
+// 這層框本身也是「被它自己的黑洞彎過」的畫面：點透鏡方程 β = θ − θE² θ/|θ|²（第一次扭曲）
+vec3 layerColor(vec2 q, float id, float S){
+  float ph = id * 2.39996 + uT * 0.21;                 // 每層的黑洞偏一點，方向按黃金角錯開、慢慢轉
+  vec2 d = q - uDrift * vec2(cos(ph), sin(ph));
+  float r2 = dot(d, d);
+  if (r2 < 0.0025) return vec3(0.0);                   // 這層自己的黑洞（通常被更深的層擋住）
+  vec2 beta = q - uTwist * uTwist * d / r2;
+  vec2 tc = vec2(beta.x / (2.0 * uAspect) + 0.5, 0.5 - 0.5 * beta.y);
+  if (uMirror > 0.5) tc.x = 1.0 - tc.x;
+  // 越深（越小）的框越遠，光走得越久 → 越久以前的畫面
+  float dsec = uDelay * clamp(log(uSCover / S) / log(uSCover / uSBirth), 0.0, 1.0);
+  return fetch(tc, dsec);
+}
+
+vec3 shade(vec2 uv){
+  float rho = length(uv);
+  vec2 e = rho > 1e-7 ? uv / rho : vec2(1.0, 0.0);
+  float hyp = sqrt(rho * rho + F * F);
+  float th = atan(rho, F);
+  float b = Z0 * rho / hyp;                            // 撞擊參數
+  float x = b / uRs;
+  if (x <= XC) return vec3(0.0);                       // 中央黑洞的影子
+  // 第二次扭曲：中央黑洞把光線轉了 α。出射的直線 = 入射直線繞黑洞轉 −α
+  float a = deflect(x);
+  float ca = cos(a), sa = sin(a);
+  float dS = cos(th - a), dY = sin(th - a);
+  float dim = 1.0;
+  if (dS < 0.05) { dS = max(abs(dS), 0.05); dim = 0.8; }   // 被彎回來的光（光子環）
+  vec3 acc = vec3(0.0);
+  float rem = 1.0;
+  // 從最近（最大）的框往深處找：落在框的「邊」上就看到它，落在中間的洞就繼續往深處
+  for (int j = 15; j >= 0; j--){
+    if (j >= uJ) continue;
+    float S = uS0 * pow(uK, float(j));
+    float D = HW * F / S - Z0;                         // 這層框離黑洞多遠
+    float y = Z0 * sa + (D + Z0 * ca) / dS * dY;       // 光線打到那個平面的位置（深的框被彎得多）
+    vec2 q = e * (y / HW);
+    float n = pow(pow(abs(q.x) / uAspect, uP) + pow(abs(q.y), uP), 1.0 / uP);
+    float hole = 1.0 / uK;
+    float w = j == 0 ? 1.0 : smoothstep(hole, hole * (1.0 + SOFT), n);
+    if (w <= 0.0) continue;
+    acc += rem * w * layerColor(q, uNewest - float(j), S);
+    rem *= 1.0 - w;
+    if (rem < 0.004) break;
   }
-  if (hit == 0) {
-    if (dot(x, v) <= 0.0) return vec3(0.0);     // 還在光子球附近繞圈 → 黑
-    hit = v.z < 0.0 ? 1 : 2;
-  }
-  float zp = hit == 1 ? -uDp : DB;
-  float vz = abs(v.z) < 1e-4 ? (hit == 1 ? -1e-4 : 1e-4) : v.z;
-  float t = clamp((zp - x.z) / vz, -10.0, 3.0 * (Z0 + uDp));   // 幾乎橫著飛走的光不要落到太遠（會變成雜訊）
-  vec3 p = x + v * t;
-  L += t * length(v);
-  float L0 = (Z0 + uDp) / -rd.z;                // 沒有黑洞時要走的路
-  float dsec = (pot + clamp(L - L0, 0.0, 40.0)) * uGain;
-  vec3 c = fetch(toTex(p.xy + B.xy, hit == 2), dsec);
-  return hit == 2 ? c * 0.85 : c;
+  return acc * dim;
 }
 
 void main(){
   float m = min(uRes.x, uRes.y);
   vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / m;
-  // 只在黑洞附近（光環會鋸齒的地方）多打幾條光線
-  float b = length(cross(vec3(-uBH, Z0), normalize(vec3(uv, -F))));
-  int n = (uAA > 1 && b < 6.0 * uRs) ? 4 : 1;
+  // 中央的環最細碎，只在那裡多打幾條光線
+  int n = (uAA > 1 && length(uv) < 0.22) ? 4 : 1;
   vec3 col = vec3(0.0);
   for (int s = 0; s < 4; s++){
     if (s >= n) break;
-    col += trace(uv + (n > 1 ? OFF[s] / m : vec2(0.0)));
+    col += shade(uv + (n > 1 ? OFF[s] / m : vec2(0.0)));
   }
   o = vec4(col / float(n), 1.0);
 }`;
@@ -217,7 +265,7 @@ try {
   gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fs));
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-} catch (e) { goBtn.hidden = true; showErr('Shader error: ' + e.message); altEl.hidden = true; throw e; }
+} catch (e) { goBtn.hidden = true; showErr('Shader error: ' + e.message, false); throw e; }
 gl.useProgram(prog);
 gl.bindVertexArray(gl.createVertexArray());
 gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
@@ -226,23 +274,32 @@ const pLoc = gl.getAttribLocation(prog, 'p');
 gl.enableVertexAttribArray(pLoc);
 gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
 const U = {};
-for (const n of ['uRes', 'uBH', 'uRs', 'uDp', 'uGain', 'uCapFps', 'uHead', 'uFilled', 'uAspect', 'uMirror', 'uAA', 'uLive', 'uHist'])
+for (const n of ['uRes', 'uRs', 'uS0', 'uK', 'uJ', 'uNewest', 'uSCover', 'uSBirth', 'uT', 'uTwist', 'uDrift', 'uDelay', 'uP',
+                 'uAA', 'uAlpha', 'uCapFps', 'uHead', 'uFilled', 'uAspect', 'uMirror', 'uLive', 'uHist'])
   U[n] = gl.getUniformLocation(prog, n);
 gl.uniform1i(U.uLive, 0);
 gl.uniform1i(U.uHist, 1);
+gl.uniform1i(U.uAlpha, 2);
 
-// ---------------- 貼圖：現在（TEXTURE0）＋ 過去（TEXTURE1，陣列） ----------------
-function texParams(target) {
-  gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(target, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
-  gl.texParameteri(target, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+// ---------------- 貼圖：現在（0）、過去（1，陣列）、偏折表（2） ----------------
+function texParams(target, filter, wrap) {
+  gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, filter);
+  gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, filter);
+  gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrap);
+  gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrap);
+}
+{
+  const t = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, AN, 1, 0, gl.RED, gl.FLOAT, alphaTable);
+  texParams(gl.TEXTURE_2D, gl.NEAREST, gl.CLAMP_TO_EDGE);
 }
 const live = gl.createTexture();
 gl.activeTexture(gl.TEXTURE0);
 gl.bindTexture(gl.TEXTURE_2D, live);
 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
-texParams(gl.TEXTURE_2D);
+texParams(gl.TEXTURE_2D, gl.LINEAR, gl.MIRRORED_REPEAT);
 
 let hist = null, histW = 0, histH = 0, head = -1, filled = 0, capAcc = 0;
 const hc = document.createElement('canvas'), hctx = hc.getContext('2d');
@@ -256,7 +313,7 @@ function allocHist(aspect) {
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D_ARRAY, hist);
   gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, w, h, N);
-  texParams(gl.TEXTURE_2D_ARRAY);
+  texParams(gl.TEXTURE_2D_ARRAY, gl.LINEAR, gl.MIRRORED_REPEAT);
   histW = hc.width = w; histH = hc.height = h;
 }
 function capture(el) {
@@ -273,12 +330,10 @@ function uploadLive(el) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, el);
 }
 
-// ---------------- 畫面來源：開始畫面的公式 → 鏡頭 / 上傳的照片、影片 ----------------
+// ---------------- 畫面來源：鏡頭／上傳的照片、影片 ----------------
 let src = null, srcAspect = 0;
-const isStill = s => s.kind === 'image' || s.kind === 'canvas';
 function srcSize(s) {
   if (s.kind === 'image') return [s.el.naturalWidth, s.el.naturalHeight];
-  if (s.kind === 'canvas') return [s.el.width, s.el.height];
   return s.el.readyState >= 2 ? [s.el.videoWidth, s.el.videoHeight] : [0, 0];
 }
 function setSource(s) {
@@ -294,7 +349,7 @@ function feedSource(dt) {
   const [w, h] = srcSize(src);
   if (!w || !h) return;
   if (Math.abs(w / h - srcAspect) > 1e-3) { srcAspect = w / h; allocHist(srcAspect); src.done = false; }   // 手機轉向時重新配置
-  if (isStill(src)) {
+  if (src.kind === 'image') {
     if (!src.done) { uploadLive(src.el); capture(src.el); src.done = true; }
     return;
   }
@@ -303,34 +358,6 @@ function feedSource(dt) {
   if (capAcc >= 1 / CAP_FPS) { capAcc = Math.min(capAcc - 1 / CAP_FPS, 1 / CAP_FPS); capture(src.el); }
 }
 
-// 開始畫面：彎曲的是描述彎曲的那條公式
-function makeSplashCanvas() {
-  const c = document.createElement('canvas'), a = innerWidth / Math.max(1, innerHeight), L = 1400;
-  c.width = a >= 1 ? L : Math.round(L * a); c.height = a >= 1 ? Math.round(L / a) : L;
-  const g = c.getContext('2d'), W = c.width, H = c.height, u = Math.min(W, H);
-  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-  g.strokeStyle = 'rgba(255,255,255,.15)'; g.lineWidth = Math.max(1, u / 800);
-  const step = u / 14;
-  for (let x = (W / 2) % step; x < W; x += step) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
-  for (let y = (H / 2) % step; y < H; y += step) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
-  let s = 7;
-  const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < 700; i++) {
-    g.fillStyle = `rgba(255,255,255,${(0.25 + 0.75 * rnd() ** 3).toFixed(3)})`;
-    g.beginPath(); g.arc(rnd() * W, rnd() * H, u * (0.0008 + 0.0022 * rnd() ** 4), 0, 7); g.fill();
-  }
-  g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = `italic ${Math.round(u * 0.058)}px "Times New Roman", Times, serif`;
-  g.fillText('d²u/dφ² + u = (3/2) rₛ u²', W / 2, H / 2);
-  g.globalAlpha = 0.7;
-  g.font = `italic ${Math.round(u * 0.034)}px "Times New Roman", Times, serif`;
-  g.fillText('rₛ = 2GM / c²', W / 2, H / 2 - u * 0.17);
-  g.fillText('dτ / dt = √(1 − rₛ / r)', W / 2, H / 2 + u * 0.17);
-  return c;
-}
-setSource({kind: 'canvas', el: makeSplashCanvas(), mirror: false});
-
-// ---------------- 鏡頭 ----------------
 let facing = 'user', busy = false, started = false;
 async function openCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('getUserMedia unavailable'), {name: 'NotSupportedError'});
@@ -343,10 +370,10 @@ async function openCamera() {
 }
 async function startCamera() {
   if (busy) return;
-  busy = true; showErr(null); goBtn.textContent = '· · ·';
+  busy = true; showErr(null); goBtn.style.opacity = .5;
   try { await openCamera(); enter(); }
-  catch (e) { showErr('Camera unavailable (' + (e.name || e.message) + ').\nAllow camera access and retry, or upload a photo / video.'); }
-  finally { busy = false; goBtn.textContent = 'FALL→IN'; }
+  catch (e) { showErr('Camera unavailable (' + (e.name || e.message) + '). Allow camera access and retry, or upload a photo / video.'); }
+  finally { busy = false; goBtn.style.opacity = ''; }
 }
 async function flipCamera() {   // 點兩下：切換前後鏡頭
   if (!src || src.kind !== 'camera' || busy) return;
@@ -389,19 +416,18 @@ function setHint(text, ms) {
   hintTimer = setTimeout(() => { hintEl.style.opacity = 0; }, ms);
 }
 function enter() {
-  if (!started) {
-    started = true;
-    bhT.x = bhT.y = 0;
-    splash.style.opacity = 0;
-    setTimeout(() => { splash.hidden = true; }, 900);
-    setHint(matchMedia('(pointer: fine)').matches ? 'drag · scroll for mass · double-click to flip · T'
-                                                 : 'drag · pinch for mass · double-tap to flip camera', 5000);
-  }
+  if (started) return;
+  started = true;
+  splash.style.opacity = 0;
+  setTimeout(() => { splash.hidden = true; }, 900);
+  setHint(matchMedia('(pointer: fine)').matches ? 'drag ↕ speed · scroll mass · double-click flip · T'
+                                               : 'drag ↕ speed · pinch mass · double-tap flip', 5000);
 }
 
 // ---------------- 調整面板 ----------------
 const panel = document.getElementById('panel');
 const sliders = {};
+let manualQ = P.has('q');
 {
   const h = document.createElement('div'); h.className = 'head';
   const t = document.createElement('span'); t.textContent = 'blackH';
@@ -423,17 +449,10 @@ const togglePanel = () => { panel.hidden = !panel.hidden; };
 if (P.has('panel')) panel.hidden = false;
 addEventListener('keydown', e => { if (e.key === 't' || e.key === 'T') togglePanel(); });
 
-// ---------------- 操作：拖曳移動黑洞、捏合／滾輪改質量、點兩下換鏡頭 ----------------
-const bh = {x: 0, y: 0}, bhT = {x: 0, y: 0};
-let rs = tune.rs.v;
-const toWorld = px => px / Math.min(innerWidth, innerHeight) * Z0 / F;   // 螢幕上的像素 → 黑洞所在平面的長度
-function clampBH() {
-  const hx = toWorld(innerWidth / 2), hy = toWorld(innerHeight / 2);
-  bhT.x = Math.max(-hx, Math.min(hx, bhT.x));
-  bhT.y = Math.max(-hy, Math.min(hy, bhT.y));
-}
+// ---------------- 操作：上下拖曳改速度、捏合／滾輪改質量、點兩下換鏡頭 ----------------
 const pts = new Map();
 let pinch0 = null, lastTap = 0;
+const clampTo = (o, v) => Math.max(o.min, Math.min(o.max, v));
 canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
   pts.set(e.pointerId, {x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now()});
@@ -446,14 +465,16 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => {
   const p = pts.get(e.pointerId);
   if (!p) return;
-  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  const dy = e.clientY - p.y;
   p.x = e.clientX; p.y = e.clientY;
-  if (!started) return;
-  if (pts.size === 1) { bhT.x += toWorld(dx); bhT.y -= toWorld(dy); clampBH(); }
-  else if (pts.size === 2 && pinch0) {
+  if (pts.size === 1) {
+    if (Math.abs(p.y - p.y0) < 8) return;          // 輕點不算拖曳
+    tune.speed.v = clampTo(tune.speed, tune.speed.v - dy / innerHeight * 3);
+    syncSlider('speed');
+    setHint('speed ' + tune.speed.v.toFixed(2), 900);
+  } else if (pts.size === 2 && pinch0) {
     const [a, b] = [...pts.values()];
-    const o = tune.rs;
-    o.v = Math.max(o.min, Math.min(o.max, pinch0.rs * Math.hypot(a.x - b.x, a.y - b.y) / pinch0.d));
+    tune.rs.v = clampTo(tune.rs, pinch0.rs * Math.hypot(a.x - b.x, a.y - b.y) / pinch0.d);
     syncSlider('rs');
   }
 });
@@ -471,13 +492,12 @@ canvas.addEventListener('pointerup', pointerEnd);
 canvas.addEventListener('pointercancel', pointerEnd);
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
-  const o = tune.rs;
-  o.v = Math.max(o.min, Math.min(o.max, o.v * Math.exp(-e.deltaY * 0.0012)));
+  tune.rs.v = clampTo(tune.rs, tune.rs.v * Math.exp(-e.deltaY * 0.0015));
   syncSlider('rs');
 }, {passive: false});
 
-// ---------------- 畫質：重的時候自動降（光環附近的多重取樣 → 解析度） ----------------
-let manualQ = P.has('q'), slow = 0, fps = 60;
+// ---------------- 畫質：重的時候自動降 ----------------
+let slow = 0, fps = 60;
 function watchSpeed(dt) {
   fps += (1 / Math.max(dt, 1e-3) - fps) * 0.05;
   if (manualQ) return;
@@ -492,39 +512,54 @@ function resize() {
 }
 
 // ---------------- 迴圈 ----------------
-const demo = P.has('demo');
 const fpsEl = document.getElementById('fps');
-let last = 0, T = 0;
+let last = 0, T = num('t', 0), travel = num('travel', 0), rs = tune.rs.v;
 function frame(now) {
   const dt = last ? Math.min((now - last) / 1000, 0.1) : 1 / 60;
-  last = now; T += dt;
+  last = now;
+  requestAnimationFrame(frame);
+  if (!started) return;                               // 開始畫面時不畫（省電）
+  T += dt;
+  travel += tune.speed.v * dt;                        // 飛了多遠（以 e 倍為單位：每單位畫面放大 e 倍）
   watchSpeed(dt);
   resize();
-  if (P.has('bx') || P.has('by')) {   // 截圖用：固定位置（螢幕短邊為 1 的單位）
-    bhT.x = num('bx', 0) * Z0 / F; bhT.y = num('by', 0) * Z0 / F;
-  } else if (!started || demo) {        // 開始畫面：黑洞慢慢漂過公式
-    bhT.x = (0.2 * Math.sin(T * 0.31) + 0.06 * Math.sin(T * 0.83)) * Z0 / F;
-    bhT.y = (0.13 * Math.sin(T * 0.47 + 1.0)) * Z0 / F;
-  }
-  const k = 1 - Math.exp(-dt * 7);      // 黑洞有一點重量：追著手指，但慢半拍
-  bh.x += (bhT.x - bh.x) * k; bh.y += (bhT.y - bh.y) * k;
-  rs += (tune.rs.v - rs) * k;
+  rs += (tune.rs.v - rs) * (1 - Math.exp(-dt * 6));
   feedSource(dt);
+
+  // 層的配置：最深那層從黑點的邊緣誕生，每飛 ln(K) 就多一層；最外那層要蓋滿螢幕四角
+  const K = tune.depth.v, lnK = Math.log(K);
+  const shadow = F * Math.tan(Math.asin(Math.min(XC * rs / Z0, 0.99)));   // 黑點在螢幕上的半徑
+  const sBirth = 0.8 * shadow;
+  const newest = Math.floor(travel / lnK);
+  const s0 = sBirth * Math.exp(travel - newest * lnK);
+  const m = Math.min(canvas.clientWidth, canvas.clientHeight) || 1;
+  const a = srcAspect || 1;
+  const pw = 10 - 8 * tune.round.v;                   // 超橢圓：|x|^p + |y|^p = 1（p = 2 橢圓，p 大 → 方）
+  const sCover = Math.pow(Math.pow(0.5 * canvas.clientWidth / m / a, pw) + Math.pow(0.5 * canvas.clientHeight / m, pw), 1 / pw) * 1.02;
+  const J = Math.min(16, Math.max(1, Math.ceil(Math.log(sCover / s0) / lnK) + 1));
+
   gl.useProgram(prog);
   gl.uniform2f(U.uRes, canvas.width, canvas.height);
-  gl.uniform2f(U.uBH, bh.x, bh.y);
   gl.uniform1f(U.uRs, rs);
-  gl.uniform1f(U.uDp, tune.dp.v);
-  gl.uniform1f(U.uGain, tune.gain.v);
+  gl.uniform1f(U.uS0, s0);
+  gl.uniform1f(U.uK, K);
+  gl.uniform1i(U.uJ, J);
+  gl.uniform1f(U.uNewest, newest);
+  gl.uniform1f(U.uSCover, sCover);
+  gl.uniform1f(U.uSBirth, sBirth);
+  gl.uniform1f(U.uT, T);
+  gl.uniform1f(U.uTwist, tune.twist.v);
+  gl.uniform1f(U.uDrift, tune.drift.v);
+  gl.uniform1f(U.uDelay, tune.delay.v);
+  gl.uniform1f(U.uP, pw);
+  gl.uniform1i(U.uAA, Q[tune.q.v].aa);
   gl.uniform1f(U.uCapFps, CAP_FPS);
   gl.uniform1f(U.uHead, Math.max(head, 0));
   gl.uniform1f(U.uFilled, hist ? filled : 0);
-  gl.uniform1f(U.uAspect, srcAspect || 1);
+  gl.uniform1f(U.uAspect, a);
   gl.uniform1f(U.uMirror, src && src.mirror ? 1 : 0);
-  gl.uniform1i(U.uAA, Q[tune.q.v].aa);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   if (!panel.hidden) fpsEl.textContent = fps.toFixed(0) + ' fps';
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 </script>
