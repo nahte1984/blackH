@@ -113,12 +113,12 @@ const Z0 = 10, F = 1.8, HW = 20, XC = 1.5 * Math.sqrt(3);   // XC: 臨界撞擊�
 const N = 56, CAP_FPS = 20, HIST_LONG = 512;                  // 過去的畫面：56 張 × 20fps ≈ 2.8 秒
 const tune = {
   rs:    {label: 'Mass',   min: 0.004, max: 0.15, step: 0.001, v: num('rs', 0.02),  f: v => v.toFixed(3)},  // 中央黑洞的 rs（越小黑點越小）
-  speed: {label: 'Speed',  min: -1.5,  max: 2.0,  step: 0.01,  v: num('speed', 0.5), f: v => v.toFixed(2)}, // 往前飛的速度（每秒放大 e^speed 倍）；負的 = 往後退、被吸進去
-  depth: {label: 'Layers', min: 1.35,  max: 3.0,  step: 0.01,  v: num('depth', 1.9), f: v => v.toFixed(2) + '×'}, // 相鄰兩層框的大小比
-  twist: {label: 'Twist',  min: 0,     max: 1.0,  step: 0.01,  v: num('twist', 0.62), f: v => v.toFixed(2)}, // 每一層自己的黑洞（愛因斯坦環的半徑，框高 = 1）
-  drift: {label: 'Drift',  min: 0,     max: 0.4,  step: 0.01,  v: num('drift', 0.14), f: v => v.toFixed(2)}, // 每一層的黑洞偏離中心多少
-  round: {label: 'Round',  min: 0,     max: 1,    step: 0.01,  v: num('round', 0.6), f: v => v.toFixed(2)},   // 框的形狀：0 = 方（螢幕裡的螢幕）、1 = 橢圓（隧道）
-  delay: {label: 'Past',   min: 0,     max: (N - 1) / CAP_FPS, step: 0.05, v: num('delay', 2.4), f: v => v.toFixed(2) + 's'}, // 最遠那層是幾秒前
+  speed: {label: 'Speed',  min: -1.5,  max: 2.0,  step: 0.01,  v: num('speed', 0.25), f: v => v.toFixed(2)}, // 往前飛的速度（每秒放大 e^speed 倍）；負的 = 往後退、被吸進去
+  depth: {label: 'Layers', min: 1.35,  max: 4.0,  step: 0.01,  v: num('depth', 3.0), f: v => v.toFixed(2) + '×'}, // 相鄰兩層框的大小比
+  twist: {label: 'Twist',  min: 0,     max: 1.5,  step: 0.01,  v: num('twist', 1.0), f: v => v.toFixed(2)}, // 每一層自己的黑洞（愛因斯坦環的半徑，框高 = 1）
+  drift: {label: 'Drift',  min: 0,     max: 0.8,  step: 0.01,  v: num('drift', 0.4), f: v => v.toFixed(2)}, // 每一層的黑洞偏離中心多少
+  round: {label: 'Round',  min: 0,     max: 1,    step: 0.01,  v: num('round', 1.0), f: v => v.toFixed(2)},   // 框的形狀：0 = 方（螢幕裡的螢幕）、1 = 正圓（隧道）
+  delay: {label: 'Past',   min: 0,     max: (N - 1) / CAP_FPS, step: 0.05, v: num('delay', (N - 1) / CAP_FPS), f: v => v.toFixed(2) + 's'}, // 最遠那層是幾秒前
   q:     {label: 'Quality', min: 0,    max: 3,    step: 1,     v: num('q', 0),     f: v => ['high', 'mid', 'low', 'lowest'][v]},
 };
 const Q = [{dpr: 2, aa: 4}, {dpr: 2, aa: 1}, {dpr: 1.5, aa: 1}, {dpr: 1, aa: 1}];
@@ -159,7 +159,7 @@ uniform float uRs;          // 中央黑洞
 uniform float uS0, uK;      // 最深那層框的大小（螢幕單位的半高）、相鄰兩層的比
 uniform int uJ;             // 層數
 uniform float uNewest;      // 最深那層的編號（每層的個性用）
-uniform float uSCover, uSBirth, uT, uTwist, uDrift, uDelay, uP;   // uP: 框的超橢圓次方
+uniform float uSCover, uSBirth, uT, uTwist, uDrift, uDelay, uP, uAx;   // uP: 框的超橢圓次方；uAx: 框的橫向半徑（Round = 1 時等於縱向 → 正圓）
 uniform int uAA;
 uniform sampler2D uAlpha;
 uniform float uCapFps, uHead, uFilled, uAspect, uMirror;
@@ -230,7 +230,7 @@ vec3 shade(vec2 uv){
     float D = HW * F / S - Z0;                         // 這層框離黑洞多遠
     float y = Z0 * sa + (D + Z0 * ca) / dS * dY;       // 光線打到那個平面的位置（深的框被彎得多）
     vec2 q = e * (y / HW);
-    float n = pow(pow(abs(q.x) / uAspect, uP) + pow(abs(q.y), uP), 1.0 / uP);
+    float n = pow(pow(abs(q.x) / uAx, uP) + pow(abs(q.y), uP), 1.0 / uP);
     float hole = 1.0 / uK;
     float w = j == 0 ? 1.0 : smoothstep(hole, hole * (1.0 + SOFT), n);
     if (w <= 0.0) continue;
@@ -274,7 +274,7 @@ const pLoc = gl.getAttribLocation(prog, 'p');
 gl.enableVertexAttribArray(pLoc);
 gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
 const U = {};
-for (const n of ['uRes', 'uRs', 'uS0', 'uK', 'uJ', 'uNewest', 'uSCover', 'uSBirth', 'uT', 'uTwist', 'uDrift', 'uDelay', 'uP',
+for (const n of ['uRes', 'uRs', 'uS0', 'uK', 'uJ', 'uNewest', 'uSCover', 'uSBirth', 'uT', 'uTwist', 'uDrift', 'uDelay', 'uP', 'uAx',
                  'uAA', 'uAlpha', 'uCapFps', 'uHead', 'uFilled', 'uAspect', 'uMirror', 'uLive', 'uHist'])
   U[n] = gl.getUniformLocation(prog, n);
 gl.uniform1i(U.uLive, 0);
@@ -534,8 +534,9 @@ function frame(now) {
   const s0 = sBirth * Math.exp(travel - newest * lnK);
   const m = Math.min(canvas.clientWidth, canvas.clientHeight) || 1;
   const a = srcAspect || 1;
-  const pw = 10 - 8 * tune.round.v;                   // 超橢圓：|x|^p + |y|^p = 1（p = 2 橢圓，p 大 → 方）
-  const sCover = Math.pow(Math.pow(0.5 * canvas.clientWidth / m / a, pw) + Math.pow(0.5 * canvas.clientHeight / m, pw), 1 / pw) * 1.02;
+  const pw = 10 - 8 * tune.round.v;                   // 超橢圓：|x/ax|^p + |y|^p = 1（p 大 → 方，p = 2 且 ax = 1 → 正圓）
+  const ax = a + (1 - a) * tune.round.v;              // 方的時候跟畫面同比例，越圓越接近 1
+  const sCover = Math.pow(Math.pow(0.5 * canvas.clientWidth / m / ax, pw) + Math.pow(0.5 * canvas.clientHeight / m, pw), 1 / pw) * 1.02;
   const J = Math.min(16, Math.max(1, Math.ceil(Math.log(sCover / s0) / lnK) + 1));
 
   gl.useProgram(prog);
@@ -552,6 +553,7 @@ function frame(now) {
   gl.uniform1f(U.uDrift, tune.drift.v);
   gl.uniform1f(U.uDelay, tune.delay.v);
   gl.uniform1f(U.uP, pw);
+  gl.uniform1f(U.uAx, ax);
   gl.uniform1i(U.uAA, Q[tune.q.v].aa);
   gl.uniform1f(U.uCapFps, CAP_FPS);
   gl.uniform1f(U.uHead, Math.max(head, 0));
